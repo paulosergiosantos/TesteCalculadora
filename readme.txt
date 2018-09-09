@@ -1,0 +1,1 @@
+- para executar precisa da instalação do Appium e Android Sdk

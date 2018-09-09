@@ -1,1 +1,1 @@
-- para executar precisa da instalação do Appium e Android Sdk
+- para executar precisa da instalacao do Java 8, do Appium e Android Sdk

@@ -199,12 +199,12 @@ class TestCalc(unittest.TestCase):
     def tearDown(self):
         self.driver.quit()
 
-def criarTestExec(jiraIssueHandler):
+def criarIssueTestExec(jiraIssueHandler):
     dateTime = datetime.datetime.now().strftime('%d/%m/%Y %H:%M:%S')
     testExecIssue = jiraIssueHandler.createIssueWithRawData(PROJECT_POC_KEY, ISSUE_TESTEXEC_NAME, "Rodada de Teste Calculadora - {}".format(dateTime))
     return testExecIssue.key
 
-def inicializarTestExec(jiraIssueHandler):
+def inicializarIssueTestExec(jiraIssueHandler):
     jiraIssueHandler.addTestToTestExecution(ISSUE_TESTEXEC_KEY, CASO_TESTE_KEYS)
     jiraIssueHandler.changeIssueTransition(ISSUE_TESTEXEC_KEY, TESTEXEC_STATUS_IN_PROGRESS)
     for key in CASO_TESTE_KEYS:
@@ -212,7 +212,7 @@ def inicializarTestExec(jiraIssueHandler):
         testRunId = jiraIssueHandler.getTestRunId(ISSUE_TESTEXEC_KEY, key)
         jiraIssueHandler.changeIssueTestRunStatus(testRunId, TESTRUN_STATUS_TODO)
 
-def finalizarTextExec(jiraIssueHandler, result):
+def finalizarIssueTestExec(jiraIssueHandler, result):
     resolution = TEST_RESOLUTION_PASSED if (len(result.failures) == 0 and len(result.errors) == 0) else TEST_RESOLUTION_FAILED
     jiraIssueHandler.changeIssueTransition(ISSUE_TESTEXEC_KEY, TESTEXEC_STATUS_DONE, resolution)
 
@@ -221,13 +221,13 @@ if __name__ == '__main__':
     testResult = unittest.TestResult()
     jiraIssueHandler = JiraIssueHandler()
     try:
-        ISSUE_TESTEXEC_KEY = "PV-183" #criarTestExec(jiraIssueHandler)
-        inicializarTestExec(jiraIssueHandler)
+        ISSUE_TESTEXEC_KEY = criarIssueTestExec(jiraIssueHandler)
+        inicializarIssueTestExec(jiraIssueHandler)
         testResult = unittest.main(exit=False).result
     except Exception as ex:
         print(str(ex))
     finally:
-        finalizarTextExec(jiraIssueHandler, testResult)
+        finalizarIssueTestExec(jiraIssueHandler, testResult)
         fimTeste = datetime.datetime.now()
         duracao = fimTeste - inicioTeste
         print("Tempo do teste: {} minutos, {} segundos".format(int(duracao.seconds/60), duracao.seconds % 60))

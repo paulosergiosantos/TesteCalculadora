@@ -1,4 +1,3 @@
-# Android environment
 import unittest
 import os
 import sys
@@ -18,7 +17,7 @@ from jira_constants import JIRA_AMBIENTE, JIRA_PRODUCAO, JIRA_HOMOLOGACAO
 from jira_constants import PROJECT_POC_KEY, ISSUE_BUG_NAME, ISSUE_TESTEXEC_NAME, ISSUE_TESTEXEC_KEY
 from jira_constants import TEST_STATUS_IN_PROGRESS_ID, TEST_STATUS_RETESTING_ID, TEST_STATUS_DONE_ID
 from jira_constants import TESTEXEC_STATUS_IN_PROGRESS, TESTEXEC_STATUS_DONE
-from jira_constants import TEST_RESOLUTION_TESTED, TEST_RESOLUTION_PASSED, TEST_RESOLUTION_FAILED
+from jira_constants import TEST_RESOLUTION_TESTED, TEST_RESOLUTION_PASSED, TEST_RESOLUTION_FAILED, TEST_RESOLUTION_DONE
 from jira_constants import TESTRUN_STATUS_TODO, TESTRUN_STATUS_EXECUTING, TESTRUN_STATUS_PASS, TESTRUN_STATUS_FAIL, TESTRUN_STATUS_ABORTED
 from jira_constants import CT_DIGITACAO, CT_FORMATACAO_DECIMAL
 from jira_constants import CT_ADICAO, CT_SUBTRACAO, CT_MULTIPLICACAO, CT_DIVISAO, CT_DIVISAO_ZERO
@@ -57,10 +56,11 @@ class TestCalc(unittest.TestCase):
         return desired_caps
 
     def setUp(self):
+        self.casoDeTeste = MAP_METODO_CASO_TESTE.get(self._testMethodName)
+        self.iniciarCasoTeste(self.casoDeTeste)
         self.desired_caps = self.getDesiredCaps()
         self.screenshot_dir = os.getenv('SCREENSHOT_PATH', '') or os.getcwd() + "/"
         self.driver = webdriver.Remote('http://localhost:4723/wd/hub', self.desired_caps)
-        self.casoDeTeste = MAP_METODO_CASO_TESTE.get(self._testMethodName)
         self.testRunStatus = TESTRUN_STATUS_PASS
         #self.imprimirTodosElements()
 
@@ -75,24 +75,16 @@ class TestCalc(unittest.TestCase):
         [print(e.__getattribute__('id'), e.get_attribute("resourceId")) for e in elements]
 
     def iniciarCasoTeste(self, casoDeTeste):
-        jiraIssueHandler.changeIssueTransition(casoDeTeste.key, TEST_STATUS_IN_PROGRESS_ID)
-        testRunId = jiraIssueHandler.getTestRunId(ISSUE_TESTEXEC_KEY, casoDeTeste.key)
-        jiraIssueHandler.changeIssueTestRunStatus(testRunId, TESTRUN_STATUS_EXECUTING)
+        jiraIssueHandler.initIssueTestRun(ISSUE_TESTEXEC_KEY, casoDeTeste.key)
 
     def finalizarCasoTeste(self, casoDeTeste, testRunStatus):
-        jiraIssueHandler.changeIssueTransition(casoDeTeste.key, TEST_STATUS_DONE_ID, TEST_RESOLUTION_TESTED)
-        testRunId = jiraIssueHandler.getTestRunId(ISSUE_TESTEXEC_KEY, casoDeTeste.key)
-        jiraIssueHandler.changeIssueTestRunStatus(testRunId, testRunStatus)
+        jiraIssueHandler.finishIssueTestRun(ISSUE_TESTEXEC_KEY, casoDeTeste.key, testRunStatus)
 
     def criarBugJira(self, casoDeTeste, exception):
-        response = jiraIssueHandler.createIssueWithRawData(PROJECT_POC_KEY, ISSUE_BUG_NAME, casoDeTeste.description, str(exception))
-        if (response.status == Response.STATUS_OK):
-            #jiraIssueHandler.createIssueLinkWithRawData(ISSUELINKTYPE_BLOCKS_BY, casoDeTeste.key, response.key)
-            testRunId = jiraIssueHandler.getTestRunId(ISSUE_TESTEXEC_KEY, casoDeTeste.key)
-            jiraIssueHandler.addDefectToTestrun(testRunId, response.key)
-            imageFileName = self.screenshot_dir + self._testMethodName + ".png"
-            imageData = ImgToBase64().convertToBase64(imageFileName)
-            jiraIssueHandler.addAttachmentToTestrun(testRunId, imageData, self._testMethodName + ".png")
+        jiraIssueHandler.createBugAndAddToTestRun(PROJECT_POC_KEY, ISSUE_TESTEXEC_KEY, casoDeTeste.key, casoDeTeste.description, str(exception))
+        imageFileName = self.screenshot_dir + self._testMethodName + ".png"
+        imageData = ImgToBase64().convertToBase64(imageFileName)
+        jiraIssueHandler.addAttachmentToTestExecAndTest(ISSUE_TESTEXEC_KEY, casoDeTeste.key, imageData, self._testMethodName + ".png")
 
     def clicarNumero(self, numArray):
         numIdPrefix = "com.sec.android.app.popupcalculator:id/bt_0"
@@ -135,9 +127,10 @@ class TestCalc(unittest.TestCase):
 
     def executarTeste(self, cientifica, resultadoEsperado, metodoTeste, *args):
         try:
-            self.iniciarCasoTeste(self.casoDeTeste)
+            #self.iniciarCasoTeste(self.casoDeTeste)
             if (cientifica):
-                self.habilitarCalcCientifica()
+                #self.habilitarCalcCientifica()
+                pass
             resultadoVisor = metodoTeste(*args)
             self.assertEqual(resultadoVisor, resultadoEsperado, self.casoDeTeste.description)
         except AssertionError as exception:
@@ -149,7 +142,8 @@ class TestCalc(unittest.TestCase):
             self.testRunStatus = TESTRUN_STATUS_ABORTED
             raise            
         finally:
-            self.finalizarCasoTeste(self.casoDeTeste, self.testRunStatus)
+            #self.finalizarCasoTeste(self.casoDeTeste, self.testRunStatus)
+            pass
 
     def testDigitacao(self):
         self.executarTeste(False, "9876543210", self.executarDigitacao)
@@ -197,37 +191,25 @@ class TestCalc(unittest.TestCase):
         self.executarTeste(True, u"\u221A" + "(9)=3", self.executarOperacao, *[[9], [], "root", True])
 
     def tearDown(self):
+        self.finalizarCasoTeste(self.casoDeTeste, self.testRunStatus)
         self.driver.quit()
 
-def criarIssueTestExec(jiraIssueHandler):
-    dateTime = datetime.datetime.now().strftime('%d/%m/%Y %H:%M:%S')
-    testExecIssue = jiraIssueHandler.createIssueWithRawData(PROJECT_POC_KEY, ISSUE_TESTEXEC_NAME, "Rodada de Teste Calculadora - {}".format(dateTime))
-    return testExecIssue.key
-
-def inicializarIssueTestExec(jiraIssueHandler):
-    jiraIssueHandler.addTestToTestExecution(ISSUE_TESTEXEC_KEY, CASO_TESTE_KEYS)
-    jiraIssueHandler.changeIssueTransition(ISSUE_TESTEXEC_KEY, TESTEXEC_STATUS_IN_PROGRESS)
-    for key in CASO_TESTE_KEYS:
-        jiraIssueHandler.changeIssueTransition(key, TEST_STATUS_RETESTING_ID)
-        testRunId = jiraIssueHandler.getTestRunId(ISSUE_TESTEXEC_KEY, key)
-        jiraIssueHandler.changeIssueTestRunStatus(testRunId, TESTRUN_STATUS_TODO)
-
-def finalizarIssueTestExec(jiraIssueHandler, result):
-    resolution = TEST_RESOLUTION_PASSED if (len(result.failures) == 0 and len(result.errors) == 0) else TEST_RESOLUTION_FAILED
-    jiraIssueHandler.changeIssueTransition(ISSUE_TESTEXEC_KEY, TESTEXEC_STATUS_DONE, resolution)
+def convertTestResultToResolution(testResult):
+    resolution = ""#TEST_RESOLUTION_DONE#TEST_RESOLUTION_PASSED if (len(testResult.failures) == 0 and len(testResult.errors) == 0) else TEST_RESOLUTION_FAILED
+    return resolution
 
 if __name__ == '__main__':
     inicioTeste = datetime.datetime.now()
     testResult = unittest.TestResult()
     jiraIssueHandler = JiraIssueHandler()
     try:
-        ISSUE_TESTEXEC_KEY = criarIssueTestExec(jiraIssueHandler)
-        inicializarIssueTestExec(jiraIssueHandler)
+        ISSUE_TESTEXEC_KEY = jiraIssueHandler.createIssueTestExec(PROJECT_POC_KEY, "Rodada de Teste Calculadora")
+        jiraIssueHandler.initIssueTestExec(ISSUE_TESTEXEC_KEY, CASO_TESTE_KEYS)
         testResult = unittest.main(exit=False).result
     except Exception as ex:
         print(str(ex))
     finally:
-        finalizarIssueTestExec(jiraIssueHandler, testResult)
+        jiraIssueHandler.finishIssueTestExec(ISSUE_TESTEXEC_KEY, convertTestResultToResolution(testResult))
         fimTeste = datetime.datetime.now()
         duracao = fimTeste - inicioTeste
         print("Tempo do teste: {} minutos, {} segundos".format(int(duracao.seconds/60), duracao.seconds % 60))

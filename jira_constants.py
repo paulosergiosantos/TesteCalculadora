@@ -1,16 +1,24 @@
-class CasoTesteJira():
-    key: None
-    description: None
-    def __init__(self, key, description):
-        self.key = key
-        self.description = description
-
 JIRA_PRODUCAO = "PRODUCAO"
 JIRA_HOMOLOGACAO = "HOMOLOGACAO"
-JIRA_AMBIENTE = JIRA_HOMOLOGACAO
+JIRA_AMBIENTE = JIRA_PRODUCAO
 
-EMAIL_TO_NOTIFICATION="paulosergio@inatel.br"
-EMAIL_CC_NOTIFICATION="andersonarruda@inatel.br,tadeuribeiro@inatel.br"
+USER_1="paulosergio"
+USER_2="andersonarruda"
+USER_3="tadeuribeiro"
+EMAIL_USER1=USER_1 + "@inatel.br"
+EMAIL_USER2=USER_2 + "@inatel.br"
+EMAIL_USER3=USER_3 + "@inatel.br"
+EMAIL_TO_NOTIFICATION=EMAIL_USER1
+EMAIL_CC_NOTIFICATION=",".join((EMAIL_USER2, EMAIL_USER3))
+
+class CasoTesteJira():
+    key: None
+    bugDescription: None
+    bugWatcher: None
+    def __init__(self, key, bugDescription, bugWatcher=USER_1):
+        self.key = key
+        self.bugDescription = bugDescription
+        self.bugWatcher = bugWatcher
 
 #CONSTANTES PARA AMBIENTE DE HOMOLOGACAO
 CT_DIGITACAO = CasoTesteJira("POC-550", "Resultado do teste de Digitacao")
@@ -19,11 +27,11 @@ CT_ADICAO = CasoTesteJira("POC-549", "Resultado do teste de Adicao")
 CT_SUBTRACAO = CasoTesteJira("POC-545", "Resultado do teste de Subtracao")
 CT_MULTIPLICACAO = CasoTesteJira("POC-565", "Resultado do teste de Multiplicacao")
 CT_DIVISAO = CasoTesteJira("POC-551", "Resultado do teste de Divisao")
-CT_DIVISAO_ZERO = CasoTesteJira("POC-563", "Resultado do teste de Divisao por Zero")
+CT_DIVISAO_ZERO = CasoTesteJira("POC-563", "Resultado do teste de Divisao por Zero", USER_2)
 CT_COSENO = CasoTesteJira("POC-566", "Resultado do teste de Coseno")
 CT_SENO = CasoTesteJira("POC-567", "Resultado do teste de Seno")
 CT_TANGENTE = CasoTesteJira("POC-568", "Resultado do teste de Tangente")
-CT_TANGENTE_90 = CasoTesteJira("POC-571", "Resultado do teste de Tangente de 90")
+CT_TANGENTE_90 = CasoTesteJira("POC-571", "Resultado do teste de Tangente de 90", USER_3)
 CT_PORCENTAGEM = CasoTesteJira("POC-552", "Resultado do teste de Porcentagem")
 CT_POTENCIACAO = CasoTesteJira("POC-569", "Resultado do teste de Potenciacao")
 CT_RAIZ_QUADRADA = CasoTesteJira("POC-570", "Resultado do teste de Raiz Quadrada")
@@ -47,11 +55,11 @@ if (JIRA_AMBIENTE == JIRA_PRODUCAO):
     CT_SUBTRACAO = CasoTesteJira("PV-111", "Resultado do teste de Subtracao")
     CT_DIVISAO = CasoTesteJira("PV-113", "Resultado do teste de Divisao")
     CT_MULTIPLICACAO = CasoTesteJira("PV-112", "Resultado do teste de Multiplicacao")
-    CT_DIVISAO_ZERO = CasoTesteJira("PV-117", "Resultado do teste de Divisao por Zero")
+    CT_DIVISAO_ZERO = CasoTesteJira("PV-117", "Resultado do teste de Divisao por Zero", USER_2)
     CT_COSENO = CasoTesteJira("PV-115", "Resultado do teste de Coseno")
     CT_SENO = CasoTesteJira("PV-114", "Resultado do teste de Seno")
     CT_TANGENTE = CasoTesteJira("PV-106", "Resultado do teste de Tangente")
-    CT_TANGENTE_90 = CasoTesteJira("PV-107", "Resultado do teste de Tangente de 90")
+    CT_TANGENTE_90 = CasoTesteJira("PV-107", "Resultado do teste de Tangente de 90", USER_3)
     CT_PORCENTAGEM = CasoTesteJira("PV-118", "Resultado do teste de Porcentagem")
     CT_POTENCIACAO = CasoTesteJira("PV-119", "Resultado do teste de Potenciacao")
     CT_RAIZ_QUADRADA = CasoTesteJira("PV-120", "Resultado do teste de Raiz Quadrada")
@@ -69,9 +77,9 @@ if (JIRA_AMBIENTE == JIRA_PRODUCAO):
 
 #CONSTANTES COMUNS PARA AMBOS AMBIENTES
 COMPONENT_APP_ID = "10002"
-COMPONENT_APP_NAME = "10002"
+COMPONENT_APP_NAME = "Aplicativos"
 AFFECTED_VERSION_ID = "10000"
-AFFECTED_VERSION_ID = "10000"
+AFFECTED_VERSION_NAME = "V1R0"
 
 ISSUE_BUG_NAME = "Bug"
 ISSUELINKTYPE_BLOCKS_BY = "Blocks"
@@ -97,6 +105,7 @@ TESTRUN_STATUS_FAIL="FAIL"
 TESTRUN_STATUS_ABORTED="ABORTED"
 
 JIRA_ISSUE_URL = JIRA_SERVER_URL + "/rest/api/latest/issue"
+JIRA_ISSUE_ADD_WATCHER_URL = JIRA_SERVER_URL + "/rest/api/latest/issue/{}/watchers"
 JIRA_ISSUE_GET_SUMMARY_URL = JIRA_SERVER_URL + "/rest/api/latest/issue/{}?fields=summary"
 JIRA_ISSUELINK_URL = JIRA_SERVER_URL + "/rest/api/latest/issueLink"
 JIRA_ISSUE_TRANSITION_URL = JIRA_SERVER_URL + "/rest/api/latest/issue/{}/transitions"

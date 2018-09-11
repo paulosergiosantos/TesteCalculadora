@@ -5,18 +5,19 @@ import logging
 import http
 import datetime
 
+from utils import GeneralUtils
 from send_email import SendEmail
 from jira_constants import JIRA_AUTH, JIRA_ACCEPT, JIRA_CONTENT
 from jira_constants import JIRA_ISSUE_URL, JIRA_ISSUELINK_URL, JIRA_ISSUE_TRANSITION_URL, JIRA_ISSUE_GET_SUMMARY_URL
 from jira_constants import JIRA_TESTEXEC_ADD_TEST_URL
 from jira_constants import JIRA_TESTRUN_GET_ID_URL, JIRA_TESTRUN_ADD_DEFECT_URL, JIRA_TESTRUN_ADD_ATTACHMENT_URL, JIRA_TESTRUN_CHANGE_STATUS_URL
-from jira_constants import JIRA_BUG_LINK_URL, EMAIL_TO_NOTIFICATION, EMAIL_CC_NOTIFICATION
+from jira_constants import JIRA_ISSUE_ADD_WATCHER_URL, JIRA_BUG_LINK_URL, EMAIL_TO_NOTIFICATION, EMAIL_CC_NOTIFICATION
 from jira_constants import PROJECT_POC_KEY, ISSUE_BUG_NAME, ISSUE_TESTEXEC_NAME, ISSUE_TESTEXEC_KEY, ISSUELINKTYPE_BLOCKS_BY
 from jira_constants import TEST_STATUS_IN_PROGRESS_ID, TEST_STATUS_RETESTING_ID, TEST_STATUS_DONE_ID
 from jira_constants import TEST_RESOLUTION_TESTED
 from jira_constants import TESTRUN_STATUS_EXECUTING, TESTRUN_STATUS_PASS, TESTRUN_STATUS_FAIL, TESTRUN_STATUS_TODO
 from jira_constants import TESTEXEC_STATUS_IN_PROGRESS, TESTEXEC_STATUS_DONE
-from jira_constants import COMPONENT_APP_ID, AFFECTED_VERSION_ID
+from jira_constants import COMPONENT_APP_NAME, AFFECTED_VERSION_NAME
 from jira_constants import CASO_TESTE_KEYS
 from jira_constants import CT_TANGENTE, CT_TANGENTE_90
 
@@ -36,14 +37,14 @@ class Assignee:
         self.name = name
 
 class Component:
-    id = None
-    def __init__(self, id):
-        self.id = id
+    name = None
+    def __init__(self, name):
+        self.name = name
 
 class Version:
-    id: None
-    def __init__(self, id):
-        self.id = id
+    name: None
+    def __init__(self, name):
+        self.name = name
 
 class CustomField:
     value = None
@@ -55,17 +56,19 @@ class Fields:
     issuetype = None
     summary = None
     description = None
-    def __init__(self, project, issuetype, summary, description):
+    assignee = None
+    def __init__(self, project, issuetype, summary, description, assignee):
         self.project = project
         self.issuetype = issuetype
         self.summary = summary
         self.description = description
+        self.assignee = assignee
  
 class FieldsTestExec(Fields):
     components = None
     versions: None
-    def __init__(self, project, issuetype, summary, description, components, versions):
-        Fields.__init__(self, project, issuetype, summary, description)
+    def __init__(self, project, issuetype, summary, description, assignee, components, versions):
+        Fields.__init__(self, project, issuetype, summary, description, assignee)
         self.components = components
         self.versions = versions
 
@@ -169,42 +172,22 @@ def enable_log(enable=False):
         requests_log.setLevel(logging.DEBUG)
         requests_log.propagate = True
 
-def codeToStr(responseStatusCode, sucessSatusCode):
-    return "Sucesso" if responseStatusCode == sucessSatusCode else "Erro"
-
-def getEmailSubject(testExecIssueInfo, testIssueInfo, bugIssueInfo):
-    return "Erro no do teste '{}' referente à execução '{}'".format(testIssueInfo.summary, testExecIssueInfo.summary)
-
-def getHtmlEmailMessage(testExecIssueInfo, testIssueInfo, bugIssueInfo):
-    testExecInfo = '<p>Execução do Teste = {}</p><br>'.format(testExecIssueInfo)
-    testInfo = '<p>Caso de Teste = {}</p><br>'.format(testIssueInfo)
-    bugInfo = '<p>Bug = {}</p><br>'.format(bugIssueInfo)
-    bugLinkUrl = JIRA_BUG_LINK_URL.format(bugIssueInfo.key)
-    bugLinkInfo = '<p><a href="{}">Clique para visualizar o bug no Jira</a></p><br>'.format(bugLinkUrl)
-    return '<html><head></head><body>{}{}{}{}</body></html>'.format(testExecInfo, testInfo, bugInfo, bugLinkInfo)
-
-def getTextlEmailMessage(testExecIssueInfo, testIssueInfo, bugIssueInfo):
-    testExecInfo = 'Execução do Teste = {}\n\n'.format(testExecIssueInfo)
-    testInfo = 'Caso de Teste = {}\n\n'.format(testIssueInfo)
-    bugInfo = 'Bug = {}\n\n'.format(bugIssueInfo)
-    bugLinkUrl = JIRA_BUG_LINK_URL.format(bugIssueInfo.key)
-    bugLinkInfo = '{}\n'.format(bugLinkUrl)
-    return '{}{}{}{}'.format(testExecInfo, testInfo, bugInfo, bugLinkInfo)
-
 class JiraIssueHandler():
     http_headers = None
+    sendEmail = SendEmail()
+    utils = GeneralUtils()
 
     def __init__(self):
         self.http_headers = {**JIRA_AUTH, **JIRA_CONTENT, **JIRA_ACCEPT}
 
-    def createIssueFields(self, project, issuetype, summary, description="", components=[], versions=[]):
+    def createIssueFields(self, project, issuetype, summary, description, assignee, components=[], versions=[]):
         if (len(components) == 0):
-            return Fields(project, issuetype, summary, description)
+            return Fields(project, issuetype, summary, description, assignee)
         else:
-            return FieldsTestExec(project, issuetype, summary, description, components, versions)
+            return FieldsTestExec(project, issuetype, summary, description, assignee, components, versions)
 
-    def createIssue(self, project, issuetype, summary, description="", components=[], versions=[]):
-        fields = self.createIssueFields(project, issuetype, summary, description, components, versions)
+    def createIssue(self, project, issuetype, summary, description, assignee, components=[], versions=[]):
+        fields = self.createIssueFields(project, issuetype, summary, description, assignee, components, versions)
         issueData = IssueData(fields)
         post_url = JIRA_ISSUE_URL
         post_data = json.dumps(issueData.__dict__, default = obj_to_dict)
@@ -212,15 +195,16 @@ class JiraIssueHandler():
         response = requests.post(post_url, headers = self.http_headers, data = post_data)
         print("Status Code:", response.status_code)
         response_content = response.json()
-        print("{} na criacao da issue: {}".format(codeToStr(response.status_code, 201), response_content))
+        print("{} na criacao da issue: {}".format(self.utils.codeToStr(response.status_code, 201), response_content))
         return Response(
             Response.STATUS_OK if response.status_code == 201 else Response.STATUS_ERROR, 
             response_content['key'] if response.status_code == 201 else str(response.status_code),
             response_content)
 
-    def createIssueWithRawData(self, projectKey, issuetypeName, summary, description="", component="", version=""):
+    def createIssueWithRawData(self, projectKey, issuetypeName, summary, description, assigneeName, component="", version=""):
         project = Project(projectKey)
         issuetype = IssueType(issuetypeName)
+        assignee = Assignee(assigneeName)
         components = list()
         versions = list()
         if (component):
@@ -228,7 +212,7 @@ class JiraIssueHandler():
         if (version):
             versions.append(Version(version))
 
-        return self.createIssue(project, issuetype, summary, description, components, versions)
+        return self.createIssue(project, issuetype, summary, description, assignee, components, versions)
 
     def createIssueLink(self, issueLinkType, inwardIssue, outwardIssue):
         issueLink = IssueLink(issueLinkType, inwardIssue, outwardIssue)
@@ -237,7 +221,7 @@ class JiraIssueHandler():
         print(post_data)
         response = requests.post(post_url, headers = self.http_headers, data = post_data)
         print("Status Code:", response.status_code)
-        print("{} na criacao do link {} entre {} e {}".format(codeToStr(response.status_code, 201), issueLinkType, inwardIssue, outwardIssue))
+        print("{} na criacao do link {} entre {} e {}".format(self.utils.codeToStr(response.status_code, 201), issueLinkType, inwardIssue, outwardIssue))
     
     def getIssueSummary(self, issueKey):
         get_url = JIRA_ISSUE_GET_SUMMARY_URL.format(issueKey)
@@ -270,12 +254,12 @@ class JiraIssueHandler():
         print(post_data)
         response = requests.post(post_url, headers = self.http_headers, data = post_data)
         print("Status Code:", response.status_code)
-        print("{} na alteracao do status da issue {} para {}".format(codeToStr(response.status_code, 204), issueKey, transitionId))
+        print("{} na alteracao do status da issue {} para {}".format(self.utils.codeToStr(response.status_code, 204), issueKey, transitionId))
 
-    def createIssueTestExec(self, projectKey, summaryPrefix):
+    def createIssueTestExec(self, projectKey, summaryPrefix, assigneeName):
         dateTime = datetime.datetime.now().strftime('%d/%m/%Y %H:%M:%S')
         summary ="{} - {}".format(summaryPrefix, dateTime)
-        testExecIssue = self.createIssueWithRawData(projectKey, ISSUE_TESTEXEC_NAME, summary, summary, COMPONENT_APP_ID, AFFECTED_VERSION_ID)
+        testExecIssue = self.createIssueWithRawData(projectKey, ISSUE_TESTEXEC_NAME, summary, summary, assigneeName, COMPONENT_APP_NAME, AFFECTED_VERSION_NAME)
         return testExecIssue.key
 
     def addTestToTestExec(self, testExecIssueKey, tests):
@@ -285,7 +269,7 @@ class JiraIssueHandler():
         print(post_data)
         response = requests.post(post_url, headers = self.http_headers, data = post_data)
         print("Status Code:", response.status_code)
-        print("{} na adição dos Tests {} para o Test Exec {}".format(codeToStr(response.status_code,200), str(tests), testExecIssueKey))
+        print("{} na adição dos Tests {} para o Test Exec {}".format(self.utils.codeToStr(response.status_code,200), str(tests), testExecIssueKey))
 
     def initIssueTestExec(self, issueTestExecKey, casoDeTesteKeys):
         self.addTestToTestExec(issueTestExecKey, casoDeTesteKeys)
@@ -310,7 +294,7 @@ class JiraIssueHandler():
         print(post_data)
         response = requests.post(post_url, headers = self.http_headers, data = post_data)
         print("Status Code:", response.status_code)
-        print("{} na adição do bug {} para o test run {}".format(codeToStr(response.status_code, 200), issueBugKey, testRunIssueId))
+        print("{} na adição do bug {} para o test run {}".format(self.utils.codeToStr(response.status_code, 200), issueBugKey, testRunIssueId))
 
     def addAttachmentToTestRun(self, testRunIssueId, data, filename, contentType="image/png"):
         testRunAttachment = TestRunAttachment(filename, contentType, data)
@@ -319,7 +303,7 @@ class JiraIssueHandler():
         print(post_data)
         response = requests.post(post_url, headers = self.http_headers, data = post_data)
         print("Status Code:", response.status_code)
-        print("{} na adição da evidencia {} para o test run {}".format(codeToStr(response.status_code, 200), filename, testRunIssueId))
+        print("{} na adição da evidencia {} para o test run {}".format(self.utils.codeToStr(response.status_code, 200), filename, testRunIssueId))
 
     def addAttachmentToTestExecAndTest(self, issueTestExecKey, issueTestKey, data, filename, contentType="image/png"):
         testRunId = self.getTestRunId(issueTestExecKey, issueTestKey)
@@ -341,14 +325,24 @@ class JiraIssueHandler():
         put_data = {}
         response = requests.put(put_url, headers = self.http_headers, data = put_data)
         print("Status Code:", response.status_code)
-        print("{} na alteracao do status do Test Run {} para {}".format(codeToStr(response.status_code, 200), testRunIssueId, status))  
+        print("{} na alteracao do status do Test Run {} para {}".format(self.utils.codeToStr(response.status_code, 200), testRunIssueId, status))  
 
-    def createBugAndAddToTestRun(self, projectKey, issueTestExecKey, issueTestKey, bugSummary, bugDescription):
-        response = self.createIssueWithRawData(projectKey, ISSUE_BUG_NAME, bugSummary, bugDescription)
+    def addIssueWatcher(self, isseueBugKey, watcher):
+        post_url = JIRA_ISSUE_ADD_WATCHER_URL.format(isseueBugKey)
+        post_data = json.dumps(watcher)
+        print(post_data)
+        response = requests.post(post_url, headers = self.http_headers, data = post_data)
+        print("Status Code:", response.status_code)
+        print("{} na adição do usuario {} como wathcer para o bug {}".format(self.utils.codeToStr(response.status_code, 200), watcher, isseueBugKey))        
+
+    def createBugAndAddToTestRun(self, projectKey, issueTestExecKey, issueTestKey, bugSummary, bugDescription, bugAssignee):
+        response = self.createIssueWithRawData(projectKey, ISSUE_BUG_NAME, bugSummary, bugDescription, bugAssignee)
         if (response.status == Response.STATUS_OK):
             #jiraIssueHandler.createIssueLinkWithRawData(ISSUELINKTYPE_BLOCKS_BY, issueTestKey, response.key)
+            #self.addIssueWatcher(response.key, bugAssignee)
             testRunId = self.getTestRunId(issueTestExecKey, issueTestKey)
             self.addDefectToTestRun(testRunId, response.key)
+            
         return response
 
     def finishIssueTestRun(self, issueTestExecKey, issueTestKey, testRunStatus, testResolution=""):
@@ -362,12 +356,10 @@ class JiraIssueHandler():
         testExecInfo = JiraIssueInfo(testExecIssueKey, self.getIssueSummary(ISSUE_TESTEXEC_KEY))
         testIssueInfo = JiraIssueInfo(testIssueKey, self.getIssueSummary(testIssueKey))
         bugIssueInfo = JiraIssueInfo(bugIssueKey, self.getIssueSummary(bugIssueKey))
-        subject = getEmailSubject(testExecInfo, testIssueInfo, bugIssueInfo)
-        messageText = getTextlEmailMessage(testExecInfo, testIssueInfo, bugIssueInfo)
-        messageHtml = getHtmlEmailMessage(testExecInfo, testIssueInfo, bugIssueInfo)
-        SendEmail().send(EMAIL_TO_NOTIFICATION, EMAIL_CC_NOTIFICATION, subject, messageText, messageHtml)
-
-
+        subject = self.utils.getEmailSubject(testExecInfo, testIssueInfo, bugIssueInfo)
+        messageText = self.utils.getTextlEmailMessage(testExecInfo, testIssueInfo, bugIssueInfo)
+        messageHtml = self.utils.getHtmlEmailMessage(testExecInfo, testIssueInfo, bugIssueInfo)
+        self.sendEmail.send(EMAIL_TO_NOTIFICATION, EMAIL_CC_NOTIFICATION, subject, messageText, messageHtml)
 
 # Description para teste    
 def getBugDescription():
@@ -383,7 +375,7 @@ if __name__ == '__main__':
     #enable_log()
     dateTime = datetime.datetime.now().strftime('%d/%m/%Y %H:%M:%S')
     jiraIssueHandler = JiraIssueHandler()
-    testExecIssue = Response(Response.STATUS_OK, "PV-122") #jiraIssueHandler.createIssueWithRawData(PROJECT_POC_KEY, ISSUE_TESTEXEC_NAME, "Rodada de Teste Calculadora - {}".format(dateTime))
+    testExecIssue = Response(Response.STATUS_OK, "PV-183") #jiraIssueHandler.createIssueWithRawData(PROJECT_POC_KEY, ISSUE_TESTEXEC_NAME, "Rodada de Teste Calculadora - {}".format(dateTime))
     jiraIssueHandler.addTestToTestExec(testExecIssue.key, CASO_TESTE_KEYS)
     
     for key in CASO_TESTE_KEYS:
@@ -398,7 +390,7 @@ if __name__ == '__main__':
     testRunId = jiraIssueHandler.getTestRunId(testExecIssue.key, CT_TANGENTE.key)
     jiraIssueHandler.changeIssueTestRunStatus(testRunId, TESTRUN_STATUS_FAIL)
 
-    bugIssue = jiraIssueHandler.createIssue(Project(PROJECT_POC_KEY), IssueType(ISSUE_BUG_NAME), CT_TANGENTE_90.description, getBugDescription())
+    bugIssue = jiraIssueHandler.createIssue(Project(PROJECT_POC_KEY), IssueType(ISSUE_BUG_NAME), CT_TANGENTE_90.bugDescription, getBugDescription(), CT_TANGENTE_90.bugAssignee)
     jiraIssueHandler.addDefectToTestRun(testRunId, bugIssue.key)
     jiraIssueHandler.createIssueLinkWithRawData(ISSUELINKTYPE_BLOCKS_BY, CT_TANGENTE_90.key, bugIssue.key)
    

@@ -5,7 +5,6 @@ import datetime
 import sys
 
 class SendEmail():
-    mailserver = None
     sender = "servicedeskjira@inatel.br"
     password = ""
     #to = "paulosergio@inatel.br,paulosergio.natercia@gmail.com"
@@ -15,22 +14,26 @@ class SendEmail():
         pass
 
     def send(self, to, cc, subject, messageText, messageHtml):
-        msg = MIMEMultipart('alternative')
-        msg.attach(MIMEText(messageText, 'text'))
-        msg.attach(MIMEText(messageHtml, 'html'))
-        msg['From'] = self.sender
-        msg['to'] = to
-        msg['cc'] = cc
-        msg["Subject"] = subject
-        allToAdddr = cc.split(",") + to.split(",")
-        self.mailserver = smtplib.SMTP('smtp-mail.outlook.com', '587')
-        self.mailserver.ehlo()
-        self.mailserver.starttls()
-        self.mailserver.login(self.sender, self.password)
-        self.mailserver.sendmail(self.sender, allToAdddr, msg.as_string())
-        self.mailserver.quit()
-        self.mailserver.close()
-        print("Email '{}' enviado de {} para {} às {}".format(subject, self.sender, to,  datetime.datetime.now().strftime('%d/%m/%Y %H:%M:%S')))
+        try:
+            msg = MIMEMultipart('alternative')
+            msg.attach(MIMEText(messageText, 'text'))
+            msg.attach(MIMEText(messageHtml, 'html'))
+            msg['From'] = self.sender
+            msg['to'] = to
+            msg['cc'] = cc
+            msg["Subject"] = subject
+            allToAdddr = cc.split(",") + to.split(",")
+            mailserver = smtplib.SMTP('smtp-mail.outlook.com', '587')
+            mailserver.ehlo()
+            mailserver.starttls()
+            mailserver.login(self.sender, self.password)
+            mailserver.sendmail(self.sender, allToAdddr, msg.as_string())
+            mailserver.quit()
+            mailserver.close()
+            print("Email '{}' enviado de {} para {} às {}".format(subject, self.sender, ",".join(allToAdddr),  datetime.datetime.now().strftime('%d/%m/%Y %H:%M:%S')))
+        except Exception as exception:
+            print("Erro ao enviar email de notificaao do bug: \n")
+            print(str(exception))
 
 if __name__ == "__main__":
     try:

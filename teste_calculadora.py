@@ -31,7 +31,8 @@ class TestCalc(unittest.TestCase):
 
     def getDesiredCaps(self):
         if (JIRA_AMBIENTE == JIRA_PRODUCAO):
-            return self.getDesiredCapsPS()
+            #return self.getDesiredCapsPS()
+            return self.getDesiredCapsInatel()
         else:
             return self.getDesiredCapsInatel()
 
@@ -78,7 +79,8 @@ class TestCalc(unittest.TestCase):
         jiraIssueHandler.initIssueTestRun(ISSUE_TESTEXEC_KEY, casoDeTeste.key)
 
     def finalizarCasoTeste(self, casoDeTeste, testRunStatus):
-        jiraIssueHandler.finishIssueTestRun(ISSUE_TESTEXEC_KEY, casoDeTeste.key, testRunStatus)
+        testResolution = "" if JIRA_AMBIENTE == JIRA_HOMOLOGACAO else TEST_RESOLUTION_TESTED
+        jiraIssueHandler.finishIssueTestRun(ISSUE_TESTEXEC_KEY, casoDeTeste.key, testRunStatus, testResolution)
 
     def anexarImagemErro(self, casoDeTeste):
         imageFileName = self.screenshot_dir + self._testMethodName + ".png"
@@ -86,7 +88,7 @@ class TestCalc(unittest.TestCase):
         jiraIssueHandler.addAttachmentToTestExecAndTest(ISSUE_TESTEXEC_KEY, casoDeTeste.key, imageData, self._testMethodName + ".png")
 
     def criarBugJira(self, casoDeTeste, exception):
-        createBugResponse = jiraIssueHandler.createBugAndAddToTestRun(PROJECT_POC_KEY, ISSUE_TESTEXEC_KEY, casoDeTeste.key, casoDeTeste.description, str(exception))
+        createBugResponse = jiraIssueHandler.createBugAndAddToTestRun(PROJECT_POC_KEY, ISSUE_TESTEXEC_KEY, casoDeTeste.key, casoDeTeste.bugDescription, str(exception), casoDeTeste.bugAssignee)
         if (createBugResponse.status == Response.STATUS_OK):
             self.anexarImagemErro(casoDeTeste)
             jiraIssueHandler.sendBugEmailNotification(ISSUE_TESTEXEC_KEY, casoDeTeste.key, createBugResponse.key)
@@ -136,7 +138,7 @@ class TestCalc(unittest.TestCase):
                 #self.habilitarCalcCientifica()
                 pass
             resultadoVisor = metodoTeste(*args)
-            self.assertEqual(resultadoVisor, resultadoEsperado, self.casoDeTeste.description)
+            self.assertEqual(resultadoVisor, resultadoEsperado, self.casoDeTeste.bugDescription)
         except AssertionError as exception:
             self.driver.save_screenshot(self.screenshot_dir + self._testMethodName + ".png")
             self.criarBugJira(self.casoDeTeste, exception)
@@ -149,13 +151,13 @@ class TestCalc(unittest.TestCase):
             #self.finalizarCasoTeste(self.casoDeTeste, self.testRunStatus)
             pass
 
-    def atestDigitacao(self):
+    def testDigitacao(self):
         self.executarTeste(False, "9876543210", self.executarDigitacao)
 
     #Simula um caso de erro: formatacao decimal não está em portugues
     def testFormatacaoDecimal(self):
         self.executarTeste(False, "4.321,05", self.executarFormatacaoDecimal)
-
+    
     def testAdicao(self):
         self.executarTeste(False, "2+4=6", self.executarOperacao, *[[2], [4], "add"])
 
@@ -193,13 +195,15 @@ class TestCalc(unittest.TestCase):
 
     def testRaizQuadrada(self):
         self.executarTeste(True, u"\u221A" + "(9)=3", self.executarOperacao, *[[9], [], "root", True])
-
+    
     def tearDown(self):
         self.finalizarCasoTeste(self.casoDeTeste, self.testRunStatus)
         self.driver.quit()
 
 def convertTestResultToResolution(testResult):
-    resolution = ""#TEST_RESOLUTION_DONE#TEST_RESOLUTION_PASSED if (len(testResult.failures) == 0 and len(testResult.errors) == 0) else TEST_RESOLUTION_FAILED
+    resolution = ""
+    if (JIRA_AMBIENTE == JIRA_PRODUCAO):
+        resolution = TEST_RESOLUTION_PASSED if (len(testResult.failures) == 0 and len(testResult.errors) == 0) else TEST_RESOLUTION_FAILED
     return resolution
 
 if __name__ == '__main__':
@@ -207,7 +211,7 @@ if __name__ == '__main__':
     testResult = unittest.TestResult()
     jiraIssueHandler = JiraIssueHandler()
     try:
-        ISSUE_TESTEXEC_KEY = "PV-183"#jiraIssueHandler.createIssueTestExec(PROJECT_POC_KEY, "Rodada de Teste Calculadora")
+        ISSUE_TESTEXEC_KEY = jiraIssueHandler.createIssueTestExec(PROJECT_POC_KEY, "Rodada de Teste Calculadora", "")
         jiraIssueHandler.initIssueTestExec(ISSUE_TESTEXEC_KEY, CASO_TESTE_KEYS)
         testResult = unittest.main(exit=False).result
     except Exception as ex:

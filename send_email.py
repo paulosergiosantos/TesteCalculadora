@@ -5,7 +5,7 @@ import datetime
 import sys
 
 class SendEmail():
-    mailserver = smtplib.SMTP("smtp-mail.outlook.com", 587)
+    mailserver = None
     sender = "servicedeskjira@inatel.br"
     password = ""
     #to = "paulosergio@inatel.br,paulosergio.natercia@gmail.com"
@@ -23,17 +23,22 @@ class SendEmail():
         msg['cc'] = cc
         msg["Subject"] = subject
         allToAdddr = cc.split(",") + to.split(",")
+        self.mailserver = smtplib.SMTP('smtp-mail.outlook.com', '587')
         self.mailserver.ehlo()
         self.mailserver.starttls()
         self.mailserver.login(self.sender, self.password)
         self.mailserver.sendmail(self.sender, allToAdddr, msg.as_string())
+        self.mailserver.quit()
         self.mailserver.close()
         print("Email '{}' enviado de {} para {} às {}".format(subject, self.sender, to,  datetime.datetime.now().strftime('%d/%m/%Y %H:%M:%S')))
 
 if __name__ == "__main__":
     try:
         message = "POC-500: Bug de formatacao decimal invalida"
-        SendEmail().send("paulosergio@inatel.br", "paulosergio.natercia@gmail.com", 'Teste de envio de email pelo Python', message, message)
+        sendEmail = SendEmail()
+        sendEmail.send("paulosergio@inatel.br", "paulosergio.natercia@gmail.com", 'Teste de envio de email pelo Python', message, message)
+        sendEmail.send("paulosergio@inatel.br", "paulosergio.natercia@gmail.com", 'Teste de envio de email pelo Python', message, message)
+        sendEmail.send("paulosergio@inatel.br", "paulosergio.natercia@gmail.com", 'Teste de envio de email pelo Python', message, message)
         print("Email enviado")
     except Exception as ex:
         print(str(ex))

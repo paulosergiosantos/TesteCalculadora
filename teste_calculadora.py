@@ -80,11 +80,16 @@ class TestCalc(unittest.TestCase):
     def finalizarCasoTeste(self, casoDeTeste, testRunStatus):
         jiraIssueHandler.finishIssueTestRun(ISSUE_TESTEXEC_KEY, casoDeTeste.key, testRunStatus)
 
-    def criarBugJira(self, casoDeTeste, exception):
-        jiraIssueHandler.createBugAndAddToTestRun(PROJECT_POC_KEY, ISSUE_TESTEXEC_KEY, casoDeTeste.key, casoDeTeste.description, str(exception))
+    def anexarImagemErro(self, casoDeTeste):
         imageFileName = self.screenshot_dir + self._testMethodName + ".png"
         imageData = ImgToBase64().convertToBase64(imageFileName)
         jiraIssueHandler.addAttachmentToTestExecAndTest(ISSUE_TESTEXEC_KEY, casoDeTeste.key, imageData, self._testMethodName + ".png")
+
+    def criarBugJira(self, casoDeTeste, exception):
+        createBugResponse = jiraIssueHandler.createBugAndAddToTestRun(PROJECT_POC_KEY, ISSUE_TESTEXEC_KEY, casoDeTeste.key, casoDeTeste.description, str(exception))
+        if (createBugResponse.status == Response.STATUS_OK):
+            self.anexarImagemErro(casoDeTeste)
+            jiraIssueHandler.sendBugEmailNotification(ISSUE_TESTEXEC_KEY, casoDeTeste.key, createBugResponse.key)
 
     def clicarNumero(self, numArray):
         numIdPrefix = "com.sec.android.app.popupcalculator:id/bt_0"
@@ -127,7 +132,6 @@ class TestCalc(unittest.TestCase):
 
     def executarTeste(self, cientifica, resultadoEsperado, metodoTeste, *args):
         try:
-            #self.iniciarCasoTeste(self.casoDeTeste)
             if (cientifica):
                 #self.habilitarCalcCientifica()
                 pass
@@ -145,7 +149,7 @@ class TestCalc(unittest.TestCase):
             #self.finalizarCasoTeste(self.casoDeTeste, self.testRunStatus)
             pass
 
-    def testDigitacao(self):
+    def atestDigitacao(self):
         self.executarTeste(False, "9876543210", self.executarDigitacao)
 
     #Simula um caso de erro: formatacao decimal não está em portugues
@@ -203,7 +207,7 @@ if __name__ == '__main__':
     testResult = unittest.TestResult()
     jiraIssueHandler = JiraIssueHandler()
     try:
-        ISSUE_TESTEXEC_KEY = jiraIssueHandler.createIssueTestExec(PROJECT_POC_KEY, "Rodada de Teste Calculadora")
+        ISSUE_TESTEXEC_KEY = "PV-183"#jiraIssueHandler.createIssueTestExec(PROJECT_POC_KEY, "Rodada de Teste Calculadora")
         jiraIssueHandler.initIssueTestExec(ISSUE_TESTEXEC_KEY, CASO_TESTE_KEYS)
         testResult = unittest.main(exit=False).result
     except Exception as ex:

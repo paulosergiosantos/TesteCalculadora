@@ -9,6 +9,9 @@ JIRA_PRODUCAO = "PRODUCAO"
 JIRA_HOMOLOGACAO = "HOMOLOGACAO"
 JIRA_AMBIENTE = JIRA_HOMOLOGACAO
 
+EMAIL_TO_NOTIFICATION="paulosergio@inatel.br"
+EMAIL_CC_NOTIFICATION="andersonarruda@inatel.br,tadeuribeiro@inatel.br"
+
 #CONSTANTES PARA AMBIENTE DE HOMOLOGACAO
 CT_DIGITACAO = CasoTesteJira("POC-550", "Resultado do teste de Digitacao")
 CT_FORMATACAO_DECIMAL = CasoTesteJira("POC-510", "Resultado do teste Formatacao Decimal")
@@ -25,7 +28,7 @@ CT_PORCENTAGEM = CasoTesteJira("POC-552", "Resultado do teste de Porcentagem")
 CT_POTENCIACAO = CasoTesteJira("POC-569", "Resultado do teste de Potenciacao")
 CT_RAIZ_QUADRADA = CasoTesteJira("POC-570", "Resultado do teste de Raiz Quadrada")
 PROJECT_POC_KEY = "POC"
-ISSUE_TESTEXEC_NAME = "Rodada de Teste"
+ISSUE_TESTEXEC_NAME = "Ciclo de Testes"
 ISSUE_TESTEXEC_KEY = "POC-645"
 TEST_STATUS_IN_PROGRESS_ID = "31"
 TEST_STATUS_RETESTING_ID = TEST_STATUS_IN_PROGRESS_ID
@@ -65,6 +68,11 @@ if (JIRA_AMBIENTE == JIRA_PRODUCAO):
 
 
 #CONSTANTES COMUNS PARA AMBOS AMBIENTES
+COMPONENT_APP_ID = "10002"
+COMPONENT_APP_NAME = "10002"
+AFFECTED_VERSION_ID = "10000"
+AFFECTED_VERSION_ID = "10000"
+
 ISSUE_BUG_NAME = "Bug"
 ISSUELINKTYPE_BLOCKS_BY = "Blocks"
 ISSUELINKTYPE_CAUSED_BY = "Problem/Incident"
@@ -89,6 +97,7 @@ TESTRUN_STATUS_FAIL="FAIL"
 TESTRUN_STATUS_ABORTED="ABORTED"
 
 JIRA_ISSUE_URL = JIRA_SERVER_URL + "/rest/api/latest/issue"
+JIRA_ISSUE_GET_SUMMARY_URL = JIRA_SERVER_URL + "/rest/api/latest/issue/{}?fields=summary"
 JIRA_ISSUELINK_URL = JIRA_SERVER_URL + "/rest/api/latest/issueLink"
 JIRA_ISSUE_TRANSITION_URL = JIRA_SERVER_URL + "/rest/api/latest/issue/{}/transitions"
 JIRA_TESTRUN_ADD_DEFECT_URL = JIRA_SERVER_URL + "/rest/raven/1.0/api/testrun/{}/defect"
@@ -96,6 +105,8 @@ JIRA_TESTRUN_ADD_ATTACHMENT_URL = JIRA_SERVER_URL + "/rest/raven/1.0/api/testrun
 JIRA_TESTRUN_CHANGE_STATUS_URL = JIRA_SERVER_URL + "/rest/raven/1.0/api/testrun/{}/status?status={}"
 JIRA_TESTRUN_GET_ID_URL = JIRA_SERVER_URL + "/rest/raven/1.0/api/testrun?testExecIssueKey={}&testIssueKey={}"
 JIRA_TESTEXEC_ADD_TEST_URL = JIRA_SERVER_URL + "/rest/raven/1.0/api/testexec/{}/test"
+
+JIRA_BUG_LINK_URL = JIRA_SERVER_URL + "/browse/{}"
 
 JIRA_AUTH = {'Authorization': 'Basic '}
 JIRA_CONTENT = {'Content-Type': 'application/json'}
